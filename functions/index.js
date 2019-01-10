@@ -19,9 +19,9 @@ cookieJar.setCookie(cookie, 'https://shikimori.org', function(err, cookie) {
 })
 
 app.get('/series/:id', (req, res) => {
-  const testUrl = "https://play.shikimori.org/animes/"+ req.params.id +"/video_online";
+  const url = "https://play.shikimori.org/animes/"+ req.params.id +"/video_online";
   const options = {
-    uri : testUrl,
+    uri : url,
     jar : cookieJar,
     headers: {
       'Referer' : 'https://shikimori.org/',
@@ -38,39 +38,55 @@ app.get('/series/:id', (req, res) => {
     const EPISODE_TRANSLATIONS_QUERY = ".episode-kinds";
     const EPISODE_HOSTINGS_QUERY = ".episode-hostings";
 
-    console.log("BASE: " + $);
+    const INFO_OBJECT_QUERY = "gon.watch_online="
 
-    var episodes = [];
-    var kek = $(EPISODES_QUERY)
-    var html = kek.html()
-    console.log("HTML: " + html);
-    kek.each(function(i, elem) {
-      console.log('item ' + i + '\n' + elem);
+    var scriptInfo = $('script').last().html()
+    var infoObj = null
+
+    try {
+      infoObj = JSON.parse(scriptInfo.substring(
+           scriptInfo.indexOf(INFO_OBJECT_QUERY) + INFO_OBJECT_QUERY.length,
+           scriptInfo.lastIndexOf("};") + 1))
+    } catch (err) {console.log(err);}
+
+    if (infoObj !== null && infoObj.is_licensed) {
+      res.status(403).send("Anime under licence")
+      return res;
+    } else if (infoObj !== null && infoObj.is_censored) {
+      res.status(404).send("Blocked in Russia")
+      return res;
+    } else {
+      var episodes = [];
+      var kek = $(EPISODES_QUERY)
+      var html = kek.html()
+      console.log("HTML: " + html);
+      kek.each(function(i, elem) {
         const id = $(elem).attr(EPISODE_ID_QUERY);
-      const translations = $(EPISODE_TRANSLATIONS_QUERY, elem)
-          .text()
-          .replace(" ", "")
-          .split(",")
-          .map( e => { return e.trim() });
+        const translations = $(EPISODE_TRANSLATIONS_QUERY, elem)
+            .text()
+            .replace(" ", "")
+            .split(",")
+            .map( e => { return e.trim() });
 
-      const rawHostings = $(EPISODE_HOSTINGS_QUERY, elem).text();
-      const videoHostings = rawHostings
-          .replace(" ", "")
-          .split(",")
-          .map( e => { return e.trim() });
+        const rawHostings = $(EPISODE_HOSTINGS_QUERY, elem).text();
+        const videoHostings = rawHostings
+            .replace(" ", "")
+            .split(",")
+            .map( e => { return e.trim() });
 
-       episodes.push(({
-         id : id,
-         animeId : req.params.id,
-         translations: translations,
-         rawHostings: rawHostings,
-         videoHostings: videoHostings
-       }));
+        episodes.push(({
+          id : id,
+          animeId : req.params.id,
+          translations: translations,
+          rawHostings: rawHostings,
+          videoHostings: videoHostings
+        }));
     });
         console.log('EPISODES: ' + episodes.length);
         res.setHeader('content-type', 'application/json');
         res.json(episodes).status(200);
         return res;
+    }
   })
   .catch((err) => {
     console.log(err)
