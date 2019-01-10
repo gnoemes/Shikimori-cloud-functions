@@ -18,6 +18,62 @@ cookieJar.setCookie(cookie, 'https://shikimori.org', function(err, cookie) {
   console.log('cookie: ' + cookie);
 })
 
+app.get('/watch/:animeId/:episodeId/:videoId*?', (req, res) => {
+  const availableParams = ["language", "kind", "author", "hosting", "raw"]
+
+  var videoPart = ""
+  if (typeof req.params.videoId !== 'undefined') {
+    videoPart = "/" + req.params.videoId
+  }
+
+  const url = "https://play.shikimori.org/animes/" + req.params.animeId + "/video_online/" + req.params.episodeId + videoPart;
+  const options = {
+    uri: url,
+    jar: cookieJar,
+    headers: {
+      'Referer': 'https://shikimori.org/',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:64.0) Gecko/20100101 Firefox/64.0',
+    },
+    transform: (body) => cheerio.load(body)
+  }
+
+  const languageCookie = "anime_video_language=" + req.query.language + "; path=/; domain=.play.shikimori.org; Expires=Tue, 19 Jan 2038 03:14:07 GMT;"
+  const hostingCookie = "anime_video_hosting=" + req.query.hosting + "; path=/; domain=.play.shikimori.org; Expires=Tue, 19 Jan 2038 03:14:07 GMT;"
+  const authorCookie = "anime_video_author=" + req.query.author + "; path=/; domain=.play.shikimori.org; Expires=Tue, 19 Jan 2038 03:14:07 GMT;"
+  const kindCookie = "anime_video_kind=" + req.query.kind + "; path=/; domain=.play.shikimori.org; Expires=Tue, 19 Jan 2038 03:14:07 GMT;"
+
+  cookieJar.setCookie(languageCookie, 'https://play.shikimori.org', function(err, cookie) {})
+  cookieJar.setCookie(hostingCookie, 'https://play.shikimori.org', function(err, cookie) {})
+  cookieJar.setCookie(authorCookie, 'https://play.shikimori.org', function(err, cookie) {})
+  cookieJar.setCookie(kindCookie, 'https://play.shikimori.org', function(err, cookie) {})
+
+  rp(options)
+    .then(($) => {
+      const URL_QUERY = "div.video-link a"
+      const TITLE_QUERY = "a.b-link>span[itemprop]"
+
+      const url = $($(URL_QUERY).first()).attr('href')
+      const title = $(TITLE_QUERY).last().text()
+
+      const tracks = []
+
+      var response = ({
+        animeId: req.params.animeId,
+        episodeId: req.params.episodeId,
+        hosting: req.params.hosting,
+        tracks: tracks
+      })
+
+      res.status(200).json(response)
+      return res
+    })
+    .catch((err) => {
+      console.log(err)
+      res.status(404).json(err)
+    });
+
+});
+
 app.get('/translations/:animeId/:episodeId', (req, res) => {
   const availableParams = ["fandub", "subtitles", "raw", "all"]
   if (availableParams.indexOf(req.query.type) == -1) {
@@ -55,8 +111,8 @@ app.get('/translations/:animeId/:episodeId', (req, res) => {
       var episodes = convertEpisodes($, req.params.animeId)
 
       if (req.params.episodeId > episodes.length) {
-          res.status(404).send("There is only " + episodes.length  + " episodes.")
-          return res
+        res.status(404).send("There is only " + episodes.length + " episodes.")
+        return res
       }
 
       var all = $(require('util').format(ALL_QUERY, req.query.type))
@@ -70,7 +126,7 @@ app.get('/translations/:animeId/:episodeId', (req, res) => {
           }
           const author = $(VIDEO_AUTHOR_QUERY, elem).text().trim()
           const hosting = $(VIDEO_HOSTING_QUERY, elem).text().trim()
-          const type =  $(VIDEO_TYPE_QUERY, elem).text().trim().toLowerCase()
+          const type = $(VIDEO_TYPE_QUERY, elem).text().trim().toLowerCase()
 
           translations.push(({
             id: videoId,
@@ -80,7 +136,7 @@ app.get('/translations/:animeId/:episodeId', (req, res) => {
             quality: quality,
             hosting: hosting,
             author: author,
-            episodesSize : episodes.length
+            episodesSize: episodes.length
           }));
         })
       res.status(200).json(translations)
@@ -121,7 +177,7 @@ app.get('/series/:id', (req, res) => {
       }
 
       if (infoObj !== null && infoObj.is_licensed) {
-        res.status(403).send("Anime under licence")
+        res.status(403).send("Anime under license")
         return res;
       } else if (infoObj !== null && infoObj.is_censored) {
         res.status(404).send("Blocked in Russia")
