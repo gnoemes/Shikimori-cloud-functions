@@ -97,7 +97,15 @@ app.get('/anime/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
     console.log(err);
   })
 
+  var _include_headers = function(body, response, resolveWithFullResponse) {
+    return {
+      'response': response,
+      'data': body
+    };
+  };
+
   let playerUrl
+  let response
 
   rp(options)
     .then(($) => {
@@ -108,18 +116,55 @@ app.get('/anime/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
 
       return rp({
         uri: playerUrl,
-        transform: (body) => cheerio.load(body)
+        transform: _include_headers
       })
     })
-    .then(($) => {
-      const tracks = videoParser.getTracks(playerUrl, $)
+    .then((data) => {
+      const tracks = videoParser.getTracks(playerUrl, cheerio.load(data.data))
       console.log(tracks);
-      var response = ({
+      response = ({
         animeId: req.params.animeId,
         episodeId: req.params.episodeId,
         hosting: req.params.hosting,
         tracks: tracks
       })
+
+      if (req.query.hosting === "sibnet.ru") {
+        var _handleRedirect = function(err, res, body) {
+          console.log(err);
+          return "https:" + res.headers.location.replace("/manifest.mpd", ".mp4")
+        };
+        var options = {
+          uri: tracks,
+          followAllRedirects: false,
+          followRedirect: false,
+          simple: false,
+          headers: {
+            'Referer': playerUrl
+          },
+          transform: _handleRedirect
+        }
+
+        return rp(options)
+      } else {
+        return response
+      }
+
+    })
+    .then((url) => {
+      if (req.query.hosting === "sibnet.ru") {
+        var track = (({
+          quality: "unknown",
+          url: url
+        }))
+
+        response = ({
+          animeId: req.params.animeId,
+          episodeId: req.params.episodeId,
+          hosting: req.params.hosting,
+          tracks: [track]
+        })
+      }
 
       res.status(200).json(response)
       return res
@@ -127,8 +172,8 @@ app.get('/anime/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
     .catch((err) => {
       console.log(err)
       res.status(404).json(err)
+      return res
     });
-
 });
 
 app.get('/anime/:animeId/:episodeId/translations/', async (req, res) => {

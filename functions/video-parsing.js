@@ -13,13 +13,13 @@ const ANIMEDIA_REGEX = "https?://online\\.animedia\\.tv/";
 const MAIL_RU = "https?://my\\.mail\\.ru/";
 
 const parseFunctions = [
-  sibnetParsing,
-  vkParsing
+  vkParsing,
+  sibnetParsing
 ]
 
 const regexArray = [
-  SIBNET_REGEX,
   VK_REGEX,
+  SIBNET_REGEX
 ]
 
 module.exports = {
@@ -38,9 +38,27 @@ function smotretAnimeParsing(url) {
 
 }
 
-function sibnetParsing(url) {
-  var tracks = []
-  return tracks
+function sibnetParsing($) {
+  const tracks = []
+  const srcRegex = /(?:player.src.+?(".+?"))/g
+
+  var src = null
+
+  $('script').each(function(i, elem) {
+    const data = $(elem).html()
+
+    const srcArray = srcRegex.exec(data)
+    srcRegex.lastIndex = 0
+    if (srcArray !== null && src === null) {
+      src = srcArray[1]
+    }
+  })
+
+  if (src !== null) {
+    src = "https://video.sibnet.ru/" + src.replace(/["']/g,"")
+  }
+
+  return src
 }
 
 function vkParsing($) {
