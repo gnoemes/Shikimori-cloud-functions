@@ -5,6 +5,7 @@ const app = express();
 const rp = require('request-promise');
 const request = require('request');
 const cheerio = require('cheerio');
+const videoParser = require('./video-parsing')
 
 const cookieJar = request.jar();
 
@@ -18,7 +19,48 @@ cookieJar.setCookie(cookie, 'https://shikimori.org', function(err, cookie) {
   console.log('cookie: ' + cookie);
 })
 
-app.get('/watch/:animeId/:episodeId/:videoId*?', (req, res) => {
+app.get('/test', async (req, res) => {
+  const url = "http://vk.com/video_ext.php?oid=-11560005&id=456239748&hash=f7946fd340e686fa"
+  const options = {
+    uri: url,
+    transform: (body) => cheerio.load(body)
+  }
+
+  rp(options)
+    .then(($) => {
+      console.log("after");
+      const VIDEOS_QUERY = "video>source[type=\"video/mp4\"]"
+      const qualityRegex = /\.(\d+)\./g;
+      const tracks = []
+
+      $(VIDEOS_QUERY).each(function(i, elem) {
+        const src = $(elem).attr("src")
+        const qualityArray = qualityRegex.exec(src)
+        qualityRegex.lastIndex = 0
+        var quality = "-1"
+        if (qualityArray !== null) {
+          quality = qualityArray[1]
+        }
+        console.log(src);
+        console.log(quality);
+
+        tracks.push(({
+          quality: quality,
+          url: src
+        }))
+      })
+
+      res.status(200).json(tracks)
+      return res
+    })
+    .catch((err) => {
+      console.log(err)
+      res.status(404).json(err)
+    });
+
+})
+
+app.get('/watch/:animeId/:episodeId/:videoId*?', async (req, res) => {
   const availableParams = ["language", "kind", "author", "hosting", "raw"]
 
   var videoPart = ""
@@ -42,21 +84,36 @@ app.get('/watch/:animeId/:episodeId/:videoId*?', (req, res) => {
   const authorCookie = "anime_video_author=" + req.query.author + "; path=/; domain=.play.shikimori.org; Expires=Tue, 19 Jan 2038 03:14:07 GMT;"
   const kindCookie = "anime_video_kind=" + req.query.kind + "; path=/; domain=.play.shikimori.org; Expires=Tue, 19 Jan 2038 03:14:07 GMT;"
 
-  cookieJar.setCookie(languageCookie, 'https://play.shikimori.org', function(err, cookie) {})
-  cookieJar.setCookie(hostingCookie, 'https://play.shikimori.org', function(err, cookie) {})
-  cookieJar.setCookie(authorCookie, 'https://play.shikimori.org', function(err, cookie) {})
-  cookieJar.setCookie(kindCookie, 'https://play.shikimori.org', function(err, cookie) {})
+  cookieJar.setCookie(languageCookie, 'https://play.shikimori.org', function(err, cookie) {
+    console.log(err);
+  })
+  cookieJar.setCookie(hostingCookie, 'https://play.shikimori.org', function(err, cookie){
+    console.log(err);
+  })
+  cookieJar.setCookie(authorCookie, 'https://play.shikimori.org', function(err, cookie) {
+    console.log(err);
+  })
+  cookieJar.setCookie(kindCookie, 'https://play.shikimori.org', function(err, cookie) {
+    console.log(err);
+  })
+
+  let playerUrl
 
   rp(options)
     .then(($) => {
       const URL_QUERY = "div.video-link a"
       const TITLE_QUERY = "a.b-link>span[itemprop]"
 
-      const url = $($(URL_QUERY).first()).attr('href')
-      const title = $(TITLE_QUERY).last().text()
+      playerUrl = $($(URL_QUERY).first()).attr('href')
 
-      const tracks = []
-
+      return rp({
+        uri: playerUrl,
+        transform: (body) => cheerio.load(body)
+      })
+    })
+    .then(($) => {
+      const tracks = videoParser.getTracks(playerUrl, $)
+      console.log(tracks);
       var response = ({
         animeId: req.params.animeId,
         episodeId: req.params.episodeId,
@@ -74,7 +131,7 @@ app.get('/watch/:animeId/:episodeId/:videoId*?', (req, res) => {
 
 });
 
-app.get('/translations/:animeId/:episodeId', (req, res) => {
+app.get('/translations/:animeId/:episodeId', async (req, res) => {
   const availableParams = ["fandub", "subtitles", "raw", "all"]
   if (availableParams.indexOf(req.query.type) == -1) {
     res.status(400).send("TYPE must be one of " + availableParams)
@@ -149,7 +206,7 @@ app.get('/translations/:animeId/:episodeId', (req, res) => {
 
 });
 
-app.get('/series/:id', (req, res) => {
+app.get('/series/:id', async (req, res) => {
   const url = "https://play.shikimori.org/animes/" + req.params.id + "/video_online";
   const options = {
     uri: url,
@@ -198,7 +255,7 @@ app.get('/series/:id', (req, res) => {
 
 app.listen('8081')
 
-function convertEpisodes($, animeId) {
+async function convertEpisodes($, animeId) {
   const ERROR_QUERY = "div.b-errors p";
   const EPISODES_QUERY = "div.c-anime_video_episodes>[data-episode],div.b-show_more-more>[data-episode]";
   const EPISODE_ID_QUERY = "data-episode";
