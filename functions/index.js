@@ -15,7 +15,7 @@ firebase.initializeApp(functions.config().firebase);
 var cookie = '_kawai_session=UFd5Ly9JcEIxSit0UEJpbjg3cm9YUUpZTk9ZUU9jUUQ0WXZzanAzODlUOUtTMS9FdDZ4SHRGYkxmemYzUHhDQ2pyZktiRUZEZlg4WXIzU09yTEJZWnQ4cmVlTHFFZUt3cHlFTjk3NFJ3YmYwUTVqa1ZsMG1hcFpQaUFLdmJYZGQ2aEVqUkw4MU5qU3drdTRqTzhRTE4rRjlXQ2MxcUJKbDNMOWJsaXM3Z0craFNmeUpTR1VBeThRSDJUNlArV3BlTkFKK2JpRGlyM3hrMGJuWElzK1VhM0hqSVFUbkZsNjRZWlg1T05XR083bEVLc2l3ZG1oZVJmSzNRZkZwS0h4VFc5b3d5Qm5WVU5WbTc4VzhnSXl4aWRqVURSdmVoL2RLTHpocFlWNEl5cFE9LS0zRC9IdXNPK1hPTUtSM2tkU2VzRDhnPT0%3D--086ce10560a6686351b45493b9a076228a1ab2b2; domain=.shikimori.org; path=/; expires=Tue, 09 Jan 2024 11:05:19 -0000; secure; HttpOnly'
 
 cookieJar.setCookie(cookie, 'https://shikimori.org', function(err, cookie) {
-  console.log('err: ' + err);
+  console.error('err: ' + err);
   console.log('cookie: ' + cookie);
 })
 
@@ -85,16 +85,24 @@ app.get('/anime/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
   const kindCookie = "anime_video_kind=" + req.query.kind + "; path=/; domain=.play.shikimori.org; Expires=Tue, 19 Jan 2038 03:14:07 GMT;"
 
   cookieJar.setCookie(languageCookie, 'https://play.shikimori.org', function(err, cookie) {
-    console.log(err);
+    if (err !== null) {
+      console.error(err);
+    }
   })
   cookieJar.setCookie(hostingCookie, 'https://play.shikimori.org', function(err, cookie) {
-    console.log(err);
+    if (err !== null) {
+      console.error(err);
+    }
   })
   cookieJar.setCookie(authorCookie, 'https://play.shikimori.org', function(err, cookie) {
-    console.log(err);
+    if (err !== null) {
+      console.error(err);
+    }
   })
   cookieJar.setCookie(kindCookie, 'https://play.shikimori.org', function(err, cookie) {
-    console.log(err);
+    if (err !== null) {
+      console.error(err);
+    }
   })
 
   var _include_headers = function(body, response, resolveWithFullResponse) {
@@ -121,7 +129,6 @@ app.get('/anime/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
     })
     .then((data) => {
       const tracks = videoParser.getTracks(playerUrl, cheerio.load(data.data))
-      console.log(tracks);
       response = ({
         animeId: req.params.animeId,
         episodeId: req.params.episodeId,
@@ -131,7 +138,9 @@ app.get('/anime/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
 
       if (req.query.hosting === "sibnet.ru") {
         var _handleRedirect = function(err, res, body) {
-          console.log(err);
+          if (err != null) {
+            console.error(err);
+          }
           return "https:" + res.headers.location.replace("/manifest.mpd", ".mp4")
         };
         var options = {
@@ -170,7 +179,7 @@ app.get('/anime/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
       return res
     })
     .catch((err) => {
-      console.log(err)
+      console.error(err);
       res.status(404).json(err)
       return res
     });
@@ -245,7 +254,7 @@ app.get('/anime/:animeId/:episodeId/translations/', async (req, res) => {
       return res
     })
     .catch((err) => {
-      console.log(err)
+      console.error(err);
       res.status(404).json(err)
     });
 
@@ -275,7 +284,7 @@ app.get('/anime/:id/series', async (req, res) => {
           scriptInfo.indexOf(INFO_OBJECT_QUERY) + INFO_OBJECT_QUERY.length,
           scriptInfo.lastIndexOf("};") + 1))
       } catch (err) {
-        console.log(err);
+        console.error(err);
       }
 
       if (infoObj !== null && infoObj.is_licensed) {
@@ -293,7 +302,7 @@ app.get('/anime/:id/series', async (req, res) => {
       }
     })
     .catch((err) => {
-      console.log(err)
+      console.error(err);
       res.status(404).json(err)
     });
 });
