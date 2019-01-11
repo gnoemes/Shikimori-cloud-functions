@@ -60,7 +60,7 @@ app.get('/test', async (req, res) => {
 
 })
 
-app.get('/watch/:animeId/:episodeId/:videoId*?', async (req, res) => {
+app.get('/anime/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
   const availableParams = ["language", "kind", "author", "hosting", "raw"]
 
   var videoPart = ""
@@ -87,7 +87,7 @@ app.get('/watch/:animeId/:episodeId/:videoId*?', async (req, res) => {
   cookieJar.setCookie(languageCookie, 'https://play.shikimori.org', function(err, cookie) {
     console.log(err);
   })
-  cookieJar.setCookie(hostingCookie, 'https://play.shikimori.org', function(err, cookie){
+  cookieJar.setCookie(hostingCookie, 'https://play.shikimori.org', function(err, cookie) {
     console.log(err);
   })
   cookieJar.setCookie(authorCookie, 'https://play.shikimori.org', function(err, cookie) {
@@ -131,7 +131,7 @@ app.get('/watch/:animeId/:episodeId/:videoId*?', async (req, res) => {
 
 });
 
-app.get('/translations/:animeId/:episodeId', async (req, res) => {
+app.get('/anime/:animeId/:episodeId/translations/', async (req, res) => {
   const availableParams = ["fandub", "subtitles", "raw", "all"]
   if (availableParams.indexOf(req.query.type) == -1) {
     res.status(400).send("TYPE must be one of " + availableParams)
@@ -206,7 +206,7 @@ app.get('/translations/:animeId/:episodeId', async (req, res) => {
 
 });
 
-app.get('/series/:id', async (req, res) => {
+app.get('/anime/:id/series', async (req, res) => {
   const url = "https://play.shikimori.org/animes/" + req.params.id + "/video_online";
   const options = {
     uri: url,
@@ -255,7 +255,7 @@ app.get('/series/:id', async (req, res) => {
 
 app.listen('8081')
 
-async function convertEpisodes($, animeId) {
+function convertEpisodes($, animeId) {
   const ERROR_QUERY = "div.b-errors p";
   const EPISODES_QUERY = "div.c-anime_video_episodes>[data-episode],div.b-show_more-more>[data-episode]";
   const EPISODE_ID_QUERY = "data-episode";
