@@ -19,45 +19,94 @@ cookieJar.setCookie(cookie, 'https://shikimori.org', function(err, cookie) {
   console.log('cookie: ' + cookie);
 })
 
-app.get('/test', async (req, res) => {
-  const url = "http://vk.com/video_ext.php?oid=-11560005&id=456239748&hash=f7946fd340e686fa"
+app.get('/anime/:animeId/:episodeId/translations/alternative', async (req, res) => {
+  const availableParams = ["fandub", "subtitles", "raw", "all"]
+  if (availableParams.indexOf(req.query.type) == -1) {
+    res.status(400).send("TYPE must be one of " + availableParams)
+    return res
+  }
+
+
+
+  const translationType = convertTranslation(req.query.type)
+
+  const query = '?episodeId=' + req.params.episodeId + "&type=" + translationType
+  const url = 'https://smotretanime.ru/api/translations' + query
   const options = {
     uri: url,
-    transform: (body) => cheerio.load(body)
+    json: true
   }
 
   rp(options)
-    .then(($) => {
-      console.log("after");
-      const VIDEOS_QUERY = "video>source[type=\"video/mp4\"]"
-      const qualityRegex = /\.(\d+)\./g;
-      const tracks = []
+    .then((response) => {
+      console.log(response);
 
-      $(VIDEOS_QUERY).each(function(i, elem) {
-        const src = $(elem).attr("src")
-        const qualityArray = qualityRegex.exec(src)
-        qualityRegex.lastIndex = 0
-        var quality = "-1"
-        if (qualityArray !== null) {
-          quality = qualityArray[1]
-        }
-        console.log(src);
-        console.log(quality);
+      const translations = []
 
-        tracks.push(({
-          quality: quality,
-          url: src
-        }))
-      })
+      response.data
+        .forEach(elem => {
+          console.log(elem);
+          translations.push(({
+            id: elem.id,
+            animeId: req.params.animeId,
+            episodeId: req.params.episodeId,
+            type: req.query.type,
+            quality: elem.qualityType,
+            hosting: "smotretanime",
+            author: elem.authorsSummary,
+            episodesSize: elem.series.numberOfEpisodes
+          }));
+        });
 
-      res.status(200).json(tracks)
+
+      res.status(200).json(translations)
       return res
-    })
-    .catch((err) => {
-      console.log(err)
+    }).catch((err) => {
+      console.error(err);
       res.status(404).json(err)
     });
 
+
+})
+
+app.get('/anime/:animeId/series/alternative', async (req, res) => {
+  const query = '?myAnimeListId=' + req.params.animeId
+  const url = 'https://smotretanime.ru/api/series' + query
+  const options = {
+    uri: url,
+    json: true
+  }
+
+  rp(options)
+    .then((series) => {
+
+      const episodes = []
+
+      series.data[0].episodes
+        .filter(elem =>
+          (elem.episodeType == "tv" || elem.episodeType) &&
+          elem.episodeFull.indexOf("OVA") == -1 &&
+          elem.episodeFull.indexOf("Special") == -1 &&
+          elem.episodeFull.indexOf("Movie") == -1 &&
+          elem.episodeFull.indexOf("ONA") == -1
+        )
+        .forEach(elem => {
+          episodes.push(({
+            id: elem.id,
+            index: parseInt(elem.episodeInt),
+            animeId: req.params.animeId,
+            translations: [],
+            rawHostings: "smotretanime",
+            videoHostings: ["smotretanime"]
+          }));
+        });
+
+      res.status(200).json(episodes)
+      return res
+    }).catch((err) => {
+      console.error(err);
+      res.status(404).json(err)
+    });
 })
 
 app.get('/anime/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
@@ -138,7 +187,7 @@ app.get('/anime/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
 
       if (req.query.hosting === "sibnet.ru") {
         var _handleRedirect = function(err, res, body) {
-          if (err != null) {
+          if (err !== null) {
             console.error(err);
           }
           return "https:" + res.headers.location.replace("/manifest.mpd", ".mp4")
@@ -260,8 +309,8 @@ app.get('/anime/:animeId/:episodeId/translations/', async (req, res) => {
 
 });
 
-app.get('/anime/:id/series', async (req, res) => {
-  const url = "https://play.shikimori.org/animes/" + req.params.id + "/video_online";
+app.get('/anime/:animeId/series', async (req, res) => {
+  const url = "https://play.shikimori.org/animes/" + req.params.animeId + "/video_online";
   const options = {
     uri: url,
     jar: cookieJar,
@@ -294,7 +343,7 @@ app.get('/anime/:id/series', async (req, res) => {
         res.status(404).send("Blocked in Russia")
         return res;
       } else {
-        var episodes = convertEpisodes($, req.params.id)
+        var episodes = convertEpisodes($, req.params.animeId)
         console.log('EPISODES: ' + episodes.length);
         res.setHeader('content-type', 'application/json');
         res.json(episodes).status(200);
@@ -340,6 +389,7 @@ function convertEpisodes($, animeId) {
 
     episodes.push(({
       id: id,
+      index: id,
       animeId: animeId,
       translations: translations,
       rawHostings: rawHostings,
@@ -347,6 +397,16 @@ function convertEpisodes($, animeId) {
     }));
   });
   return episodes
+}
+
+function convertTranslation(type) {
+  if (type == "fandub") {
+    return "voiceRu"
+  } else if (type == "subtitles") {
+    return "subRu"
+  } else {
+    return type
+  }
 }
 
 exports.api = functions.https.onRequest(app);
