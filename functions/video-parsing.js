@@ -30,7 +30,7 @@ module.exports = {
         return parseFunctions[i]($)
       }
     }
-    return []
+    return [({quality : "unknown", url : url})]
   }
 }
 
