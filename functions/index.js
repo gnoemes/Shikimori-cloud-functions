@@ -185,11 +185,11 @@ app.get('/anime/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
       response = ({
         animeId: req.params.animeId,
         episodeId: req.params.episodeId,
-        hosting: req.params.hosting,
+        hosting: req.query.hosting,
         tracks: tracks
       })
 
-      if (req.query.hosting === "sibnet.ru") {
+      if (playerUrl.indexOf("sibnet.ru") != -1 && req.query.hosting === "sibnet.ru") {
         var _handleRedirect = function(err, res, body) {
           if (err !== null) {
             console.error(err);
@@ -214,7 +214,7 @@ app.get('/anime/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
 
     })
     .then((url) => {
-      if (req.query.hosting === "sibnet.ru") {
+      if (playerUrl.indexOf("sibnet.ru") != -1 && req.query.hosting === "sibnet.ru") {
         var track = (({
           quality: "unknown",
           url: url
@@ -223,7 +223,7 @@ app.get('/anime/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
         response = ({
           animeId: req.params.animeId,
           episodeId: req.params.episodeId,
-          hosting: req.params.hosting,
+          hosting: req.query.hosting,
           tracks: [track]
         })
       }
