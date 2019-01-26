@@ -171,6 +171,10 @@ app.get('/anime/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
 
       playerUrl = $($(URL_QUERY).first()).attr('href')
 
+      if (playerUrl.indexOf("http") == -1) {
+        playerUrl = "http:" + playerUrl
+      }
+
       return rp({
         uri: playerUrl,
         transform: _include_headers
@@ -352,7 +356,7 @@ app.get('/anime/:animeId/series', async (req, res) => {
     })
     .catch((err) => {
       console.error(err);
-      res.status(404).json(err)
+      res.status(400).json(err)
     });
 });
 
