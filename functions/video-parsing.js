@@ -31,6 +31,10 @@ module.exports = {
       }
     }
     return [({quality : "unknown", url : url})]
+  },
+
+  getHosting : function(url) {
+    return findHosting(url)
   }
 }
 
@@ -83,4 +87,28 @@ function vkParsing($) {
   })
 
   return tracks
+}
+
+function findHosting(url) {
+  if (url.match(VK_REGEX)) {
+    return "vk.com"
+  } else if (url.match(SMOTRET_ANIME_REGEX)) {
+    return "smotretanime.ru"
+  } else if (url.match(SIBNET_REGEX)) {
+    return "sibnet.ru"
+  } else if (url.match(YOUTUBE_REGEX)) {
+    return "youtube.com"
+  } else if (url.match(RUTUBE_REGEX)) {
+    return "rutube.ru"
+  } else if (url.match(OK_REGEX)) {
+    return "ok.ru"
+  } else if (url.match(SOVET_ROMANTICA_REGEX)) {
+    return "sovetromantica.com"
+  } else if (url.match(ANIMEDIA_REGEX)) {
+    return "animedia.tv"
+  } else if (url.match(MAIL_RU)) {
+    return "mail.ru"
+  } else {
+    return "unknown"
+  }
 }

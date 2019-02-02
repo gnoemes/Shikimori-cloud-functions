@@ -90,7 +90,7 @@ app.get('/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
       response = ({
         animeId: req.params.animeId,
         episodeId: req.params.episodeId,
-        hosting: req.query.hosting,
+        hosting: videoParser.getHosting(playerUrl),
         tracks: tracks
       })
 
@@ -128,7 +128,7 @@ app.get('/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
         response = ({
           animeId: req.params.animeId,
           episodeId: req.params.episodeId,
-          hosting: req.query.hosting,
+          hosting: "sibnet",
           tracks: [track]
         })
       }
