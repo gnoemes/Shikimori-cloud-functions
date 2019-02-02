@@ -5,7 +5,6 @@ const app = express();
 const rp = require('request-promise');
 const request = require('request');
 const cheerio = require('cheerio');
-const videoParser = require('./video-parsing')
 const animeApi = require('./anime')
 const animeAltApi = require('./anime-alternative')
 
