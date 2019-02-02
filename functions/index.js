@@ -82,24 +82,26 @@ app.get('/anime/:animeId/series/alternative', async (req, res) => {
 
       const episodes = []
 
-      series.data[0].episodes
-        .filter(elem =>
-          (elem.episodeType == "tv" || elem.episodeType) &&
-          elem.episodeFull.indexOf("OVA") == -1 &&
-          elem.episodeFull.indexOf("Special") == -1 &&
-          elem.episodeFull.indexOf("Movie") == -1 &&
-          elem.episodeFull.indexOf("ONA") == -1
-        )
-        .forEach(elem => {
-          episodes.push(({
-            id: elem.id,
-            index: parseInt(elem.episodeInt),
-            animeId: req.params.animeId,
-            translations: [],
-            rawHostings: "smotretanime",
-            videoHostings: ["smotretanime"]
-          }));
-        });
+      if (typeof series.data[0].episodes !== 'undefined') {
+        series.data[0].episodes
+          .filter(elem =>
+            (elem.episodeType == "tv" || elem.episodeType) &&
+            elem.episodeFull.indexOf("OVA") == -1 &&
+            elem.episodeFull.indexOf("Special") == -1 &&
+            elem.episodeFull.indexOf("Movie") == -1 &&
+            elem.episodeFull.indexOf("ONA") == -1
+          )
+          .forEach(elem => {
+            episodes.push(({
+              id: elem.id,
+              index: parseInt(elem.episodeInt),
+              animeId: req.params.animeId,
+              translations: [],
+              rawHostings: "smotretanime",
+              videoHostings: ["smotretanime"]
+            }));
+          });
+      }
 
       res.status(200).json(episodes)
       return res
