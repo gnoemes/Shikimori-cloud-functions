@@ -4,14 +4,46 @@ const rp = require('request-promise');
 const request = require('request');
 const cheerio = require('cheerio');
 
+app.get('/translation/:translationId', async (req, res) => {
+
+  if (typeof req.params.translationId == 'undefined') {
+    res.status(400).send("Translation id is required")
+    return res
+  }
+
+  const url = 'https://smotretanime.ru/api/translations/' + req.params.translationId
+  const options = {
+    uri: url,
+    json: true
+  }
+
+  let videoResponse
+
+  rp(options)
+    .then((response) => {
+      console.log(response);
+
+      videoResponse = ({
+        animeId: response.data.series.myAnimeListId,
+        episodeId: response.data.episode.episodeInt,
+        hosting: "smotretanime",
+        tracks: [({quality : "unknown", url : response.data.embedUrl})]
+      })
+
+      res.status(200).json(videoResponse)
+      return res
+    }).catch((err) => {
+      console.error(err);
+      res.status(404).json(err)
+    });
+})
+
 app.get('/:animeId/:episodeId/translations', async (req, res) => {
   const availableParams = ["fandub", "subtitles", "raw", "all"]
   if (availableParams.indexOf(req.query.type) == -1) {
     res.status(400).send("TYPE must be one of " + availableParams)
     return res
   }
-
-
 
   const translationType = convertTranslation(req.query.type)
 
@@ -50,8 +82,6 @@ app.get('/:animeId/:episodeId/translations', async (req, res) => {
       console.error(err);
       res.status(404).json(err)
     });
-
-
 })
 
 app.get('/:animeId/series', async (req, res) => {
