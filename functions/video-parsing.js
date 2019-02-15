@@ -13,12 +13,10 @@ const ANIMEDIA_REGEX = "https?://online\\.animedia\\.tv/";
 const MAIL_RU = "https?://my\\.mail\\.ru/";
 
 const parseFunctions = [
-  vkParsing,
   sibnetParsing
 ]
 
 const regexArray = [
-  VK_REGEX,
   SIBNET_REGEX
 ]
 
@@ -63,30 +61,6 @@ function sibnetParsing($) {
   }
 
   return src
-}
-
-function vkParsing($) {
-  const VIDEOS_QUERY = "video>source[type=\"video/mp4\"]"
-  const qualityRegex = /\.(\d+)\./g;
-  const tracks = []
-
-  $(VIDEOS_QUERY).each(function(i, elem) {
-    const src = $(elem).attr("src")
-    const qualityArray = qualityRegex.exec(src)
-    qualityRegex.lastIndex = 0
-    var quality = "unknown"
-    if (qualityArray !== null) {
-      quality = qualityArray[1]
-    }
-
-    console.log(src)
-    tracks.push(({
-      quality: quality,
-      url: src
-    }))
-  })
-
-  return tracks
 }
 
 function findHosting(url) {
