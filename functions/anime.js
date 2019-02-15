@@ -22,7 +22,7 @@ app.get('/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
     videoPart = "/" + req.params.videoId
   }
 
-  const url = "https://play.shikimori.org/animes/" + req.params.animeId + "/video_online/" + req.params.episodeId + videoPart;
+  const url = "https://play.shikimori.org/animes/a" + req.params.animeId + "/video_online/" + req.params.episodeId + videoPart;
   const options = {
     uri: url,
     jar: cookieJar,
@@ -150,7 +150,7 @@ app.get('/:animeId/:episodeId/translations/', async (req, res) => {
     return res
   }
 
-  const url = "https://play.shikimori.org/animes/" + req.params.animeId + "/video_online/" + req.params.episodeId;
+  const url = "https://play.shikimori.org/animes/a" + req.params.animeId + "/video_online/" + req.params.episodeId;
   const options = {
     uri: url,
     jar: cookieJar,
@@ -219,7 +219,7 @@ app.get('/:animeId/:episodeId/translations/', async (req, res) => {
 });
 
 app.get('/:animeId/series', async (req, res) => {
-  const url = "https://play.shikimori.org/animes/" + req.params.animeId + "/video_online";
+  const url = "https://play.shikimori.org/animes/a" + req.params.animeId + "/video_online";
   const options = {
     uri: url,
     jar: cookieJar,
