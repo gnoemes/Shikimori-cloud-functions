@@ -14,6 +14,52 @@ cookieJar.setCookie(cookie, 'https://shikimori.org', function(err, cookie) {
   console.log('cookie: ' + cookie);
 })
 
+app.get('/:animeId/:episodeId/topic', async (req, res) => {
+  const url = "https://play.shikimori.org/animes/a" + req.params.animeId + "/video_online/" + req.params.episodeId;
+  const options = {
+    uri: url,
+    jar: cookieJar,
+    headers: {
+      'Referer': 'https://shikimori.org/',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:64.0) Gecko/20100101 Firefox/64.0',
+    },
+    transform: (body) => cheerio.load(body)
+  }
+
+  var topicId = -1
+
+  rp(options)
+    .then(($) => {
+      const TOPIC_QUERY = "div.b-topic"
+      const FAYE_QUERY = "data-faye"
+
+      const resultRaw = $(TOPIC_QUERY).attr(FAYE_QUERY)
+
+      if (typeof resultRaw != 'undefined') {
+        const result =   parseInt(resultRaw.replace(/[\[\"topic\-\]]/g, ""))
+
+        console.log(result);
+        if (typeof result == 'number' && result !== null && !isNaN(result)) {
+          topicId = result
+        }
+      }
+
+      if (topicId == -1) {
+        res.status(404).json("topic not found")
+        return res
+      } else {
+        res.status(200).json(({
+          id: topicId
+        }))
+        return res
+      }
+
+    }).catch((err) => {
+      console.error(err);
+      res.status(404).json(err)
+    });
+})
+
 app.get('/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
   const availableParams = ["language", "kind", "author", "hosting", "raw"]
 
@@ -90,7 +136,7 @@ app.get('/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
       response = ({
         animeId: req.params.animeId,
         episodeId: req.params.episodeId,
-        player : playerUrl,
+        player: playerUrl,
         hosting: videoParser.getHosting(playerUrl),
         tracks: tracks
       })
@@ -129,7 +175,7 @@ app.get('/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
         response = ({
           animeId: req.params.animeId,
           episodeId: req.params.episodeId,
-          player : playerUrl,
+          player: playerUrl,
           hosting: "sibnet",
           tracks: [track]
         })
