@@ -13,11 +13,13 @@ const ANIMEDIA_REGEX = "https?://online\\.animedia\\.tv/";
 const MAIL_RU = "https?://my\\.mail\\.ru/";
 
 const parseFunctions = [
-  sibnetParsing
+  sibnetParsing,
+  sovetRomanticaParing
 ]
 
 const regexArray = [
-  SIBNET_REGEX
+  SIBNET_REGEX,
+  SOVET_ROMANTICA_REGEX
 ]
 
 module.exports = {
@@ -28,16 +30,44 @@ module.exports = {
         return parseFunctions[i]($)
       }
     }
-    return [({quality : "unknown", url : url})]
+    return [({
+      quality: "unknown",
+      url: url
+    })]
   },
 
-  getHosting : function(url) {
+  getHosting: function(url) {
     return findHosting(url)
   }
 }
 
 function smotretAnimeParsing(url) {
 
+}
+
+function sovetRomanticaParing($) {
+  const srcScript = "videojs('sr-video-js-player').src("
+  const srcRegex = /(?:src\((.*)\))/g
+
+  var src = null
+
+  $('script').each(function(i, elem) {
+    const data = $(elem).html()
+
+    if (data.indexOf(srcScript) != -1) {
+      const srcArray = srcRegex.exec(data)
+      srcRegex.lastIndex = 0
+      if (srcArray !== null && src === null) {
+
+        src = srcArray[1].replace(/["]/g, "")
+      }
+    }
+  })
+
+  return [({
+    quality: "unknown",
+    url: src
+  })]
 }
 
 function sibnetParsing($) {
@@ -57,7 +87,7 @@ function sibnetParsing($) {
   })
 
   if (src !== null) {
-    src = "https://video.sibnet.ru/" + src.replace(/["']/g,"")
+    src = "https://video.sibnet.ru/" + src.replace(/["']/g, "")
   }
 
   return src
