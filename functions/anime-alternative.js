@@ -7,17 +7,17 @@ const cheerio = require('cheerio');
 app.get('/translation/:translationId', async (req, res) => {
 
   if (typeof req.params.translationId == 'undefined') {
-    res.status(400).send("Translation id is required")
+    res.status(400).send("Translation id is required");
     return res
   }
 
-  const url = 'https://smotretanime.ru/api/translations/' + req.params.translationId
+  const url = 'https://smotretanime.ru/api/translations/' + req.params.translationId;
   const options = {
     uri: url,
     json: true
-  }
+  };
 
-  let videoResponse
+  let videoResponse;
 
   rp(options)
     .then((response) => {
@@ -28,37 +28,37 @@ app.get('/translation/:translationId', async (req, res) => {
         episodeId: response.data.episode.episodeInt,
         hosting: "smotretanime",
         tracks: [({quality : "unknown", url : response.data.embedUrl})]
-      })
+      });
 
-      res.status(200).json(videoResponse)
+      res.status(200).json(videoResponse);
       return res
     }).catch((err) => {
       console.error(err);
       res.status(404).json(err)
     });
-})
+});
 
 app.get('/:animeId/:episodeId/translations', async (req, res) => {
-  const availableParams = ["fandub", "subtitles", "raw", "all"]
-  if (availableParams.indexOf(req.query.type) == -1) {
-    res.status(400).send("TYPE must be one of " + availableParams)
+  const availableParams = ["fandub", "subtitles", "raw", "all"];
+  if (availableParams.indexOf(req.query.type) === -1) {
+    res.status(400).send("TYPE must be one of " + availableParams);
     return res
   }
 
-  const translationType = convertTranslation(req.query.type)
+  const translationType = convertTranslation(req.query.type);
 
-  const query = '?episodeId=' + req.params.episodeId + "&type=" + translationType
-  const url = 'https://smotretanime.ru/api/translations' + query
+  const query = '?episodeId=' + req.params.episodeId + "&type=" + translationType;
+  const url = 'https://smotretanime.ru/api/translations' + query;
   const options = {
     uri: url,
     json: true
-  }
+  };
 
   rp(options)
     .then((response) => {
       console.log(response);
 
-      const translations = []
+      const translations = [];
 
       response.data
         .forEach(elem => {
@@ -76,35 +76,35 @@ app.get('/:animeId/:episodeId/translations', async (req, res) => {
         });
 
 
-      res.status(200).json(translations)
+      res.status(200).json(translations);
       return res
     }).catch((err) => {
       console.error(err);
       res.status(404).json(err)
     });
-})
+});
 
 app.get('/:animeId/series', async (req, res) => {
-  const query = '?myAnimeListId=' + req.params.animeId
-  const url = 'https://smotretanime.ru/api/series' + query
+  const query = '?myAnimeListId=' + req.params.animeId;
+  const url = 'https://smotretanime.ru/api/series' + query;
   const options = {
     uri: url,
     json: true
-  }
+  };
 
   rp(options)
     .then((series) => {
 
-      const episodes = []
+      const episodes = [];
 
       if (typeof series.data[0].episodes !== 'undefined') {
         series.data[0].episodes
           .filter(elem =>
-            (elem.episodeType == "tv" || elem.episodeType) &&
-            elem.episodeFull.indexOf("OVA") == -1 &&
-            elem.episodeFull.indexOf("Special") == -1 &&
-            elem.episodeFull.indexOf("Movie") == -1 &&
-            elem.episodeFull.indexOf("ONA") == -1
+            (elem.episodeType === "tv" || elem.episodeType) &&
+            elem.episodeFull.indexOf("OVA") === -1 &&
+            elem.episodeFull.indexOf("Special") === -1 &&
+            elem.episodeFull.indexOf("Movie") === -1 &&
+            elem.episodeFull.indexOf("ONA") === -1
           )
           .forEach(elem => {
             episodes.push(({
@@ -118,22 +118,22 @@ app.get('/:animeId/series', async (req, res) => {
           });
       }
 
-      res.status(200).json(episodes)
+      res.status(200).json(episodes);
       return res
     }).catch((err) => {
       console.error(err);
       res.status(404).json(err)
     });
-})
+});
 
 function convertTranslation(type) {
-  if (type == "fandub") {
+  if (type === "fandub") {
     return "voiceRu"
-  } else if (type == "subtitles") {
+  } else if (type === "subtitles") {
     return "subRu"
   } else {
     return type
   }
 }
 
-module.exports = app
+module.exports = app;
