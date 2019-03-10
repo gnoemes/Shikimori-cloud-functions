@@ -26,6 +26,7 @@ app.get('/translation/:translationId', async (req, res) => {
       videoResponse = ({
         animeId: response.data.series.myAnimeListId,
         episodeId: response.data.episode.episodeInt,
+        player : response.data.embedUrl,
         hosting: "smotretanime",
         tracks: [({quality : "unknown", url : response.data.embedUrl})]
       });
