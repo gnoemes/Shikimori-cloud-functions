@@ -14,13 +14,11 @@ const MAIL_RU = "https?://my\\.mail\\.ru/";
 const parseFunctions = [
   sibnetParsing,
   sovetRomanticaParsing,
-  smotretAnimeParsing
 ];
 
 const regexArray = [
   SIBNET_REGEX,
   SOVET_ROMANTICA_REGEX,
-  SMOTRET_ANIME_REGEX
 ];
 
 module.exports = {
