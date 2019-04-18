@@ -11,6 +11,88 @@ const cookieJar = request.jar();
 syncUsers()
 let proxyUsers = []
 
+
+//TODO refactor
+app.post('/player', async (req, res) => {
+  const _include_headers = function(body, response) {
+    return {
+      'response': response,
+      'data': body
+    };
+  };
+
+  let playerUrl = req.body.playerUrl
+  let response;
+
+  const options = {
+    uri: playerUrl,
+    transform: _include_headers
+  }
+
+  rp(options)
+    .then((data) => {
+      const q = videoParser.getTracks(playerUrl, cheerio.load(data.data));
+      console.log(q);
+      return q;
+    }).then((tracks) => {
+      response = ({
+        animeId: req.body.animeId,
+        episodeId: req.body.episodeId,
+        player: playerUrl,
+        hosting: videoParser.getHosting(playerUrl),
+        tracks: tracks
+      });
+
+      if (playerUrl.indexOf("sibnet.ru") !== -1) {
+        const _handleRedirect = function(err, res) {
+          if (err !== null) {
+            console.error(err);
+          }
+          return "https:" + res.headers.location.replace("/manifest.mpd", ".mp4")
+        };
+        const options = {
+          uri: tracks,
+          followAllRedirects: false,
+          followRedirect: false,
+          simple: false,
+          headers: {
+            'Referer': playerUrl
+          },
+          transform: _handleRedirect
+        };
+
+        return rp(options)
+      } else {
+        return response
+      }
+
+    })
+    .then((url) => {
+      if (playerUrl.indexOf("sibnet.ru") !== -1) {
+        const track = (({
+          quality: "unknown",
+          url: url
+        }));
+
+        response = ({
+          animeId: req.body.animeId,
+          episodeId: req.body.episodeId,
+          player: playerUrl,
+          hosting: "sibnet.ru",
+          tracks: [track]
+        })
+      }
+
+      res.status(200).json(response);
+      return res
+    })
+    .catch((err) => {
+      console.error(err);
+      res.status(404).json(err);
+      return res
+    });
+})
+
 app.get('/:animeId/:episodeId/topic', async (req, res) => {
   let userIndex = updateCookies();
 
