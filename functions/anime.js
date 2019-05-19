@@ -266,72 +266,83 @@ app.get('/:animeId/:episodeId/translations/', async (req, res) => {
     return res
   }
 
-  const url = "https://play.shikimori.org/animes/a" + req.params.animeId + "/video_online/" + req.params.episodeId;
-  const options = {
-    uri: url,
-    jar: cookieJar,
-    headers: {
-      'Referer': 'https://shikimori.org/',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:64.0) Gecko/20100101 Firefox/64.0',
-    },
-    transform: (body) => cheerio.load(body)
-  };
+  const baseUrl = "https://play.shikimori.org/animes/a" + req.params.animeId + "/video_online/" + req.params.episodeId;
 
-  rp(options)
-    .then(($) => {
-      const ALL_QUERY = "div.video-variant-group[data-kind=%s]";
-      const TRANSLATIONS_QUERY = "div.b-video_variant[data-video_id]";
-      const VIDEO_ID_QUERY = "data-video_id";
+  const getTranslations = url => {
+    const options = {
+      uri: url,
+      jar: cookieJar,
+      headers: {
+        'Referer': 'https://shikimori.org/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:64.0) Gecko/20100101 Firefox/64.0',
+      },
+      transform: (body) => cheerio.load(body)
+    };
 
-      const REJECTED_QUERY = "rejected";
-      const BROKEN_QUERY = "broken";
-      const BANNED_QUERY = "banned_hosting";
+    rp(options)
+      .then(($) => {
+        const ALL_QUERY = "div.video-variant-group[data-kind=%s]";
+        const TRANSLATIONS_QUERY = "div.b-video_variant[data-video_id]";
+        const VIDEO_ID_QUERY = "data-video_id";
 
-      const VIDEO_QUALITY_QUERY = ".video-quality";
-      const VIDEO_TYPE_QUERY = ".video-kind";
-      const VIDEO_HOSTING_QUERY = ".video-hosting";
-      const VIDEO_AUTHOR_QUERY = ".video-author";
+        const REJECTED_QUERY = "rejected";
+        const BROKEN_QUERY = "broken";
+        const BANNED_QUERY = "banned_hosting";
 
-      let translations = [],
-        episodes = convertEpisodes($, req.params.animeId);
+        const VIDEO_QUALITY_QUERY = ".video-quality";
+        const VIDEO_TYPE_QUERY = ".video-kind";
+        const VIDEO_HOSTING_QUERY = ".video-hosting";
+        const VIDEO_AUTHOR_QUERY = ".video-author";
 
-      if (req.params.episodeId > episodes.length) {
-        res.status(404).send("There is only " + episodes.length + " episodes.");
+        let translations = [],
+          episodes = convertEpisodes($, req.params.animeId);
+
+        if (req.params.episodeId > episodes.length) {
+          res.status(404).send("There is only " + episodes.length + " episodes.");
+          return res
+        }
+
+        let all = $(require('util').format(ALL_QUERY, req.query.type));
+        $(TRANSLATIONS_QUERY, all)
+          .each(function(i, elem) {
+            const videoId = $(elem).attr(VIDEO_ID_QUERY);
+            const rawQuality = $(VIDEO_QUALITY_QUERY, elem).attr('class');
+            let quality = "tv";
+            if (typeof rawQuality !== 'undefined' && rawQuality !== null) {
+              quality = rawQuality.split(' ')[1]
+            }
+            const author = $(VIDEO_AUTHOR_QUERY, elem).text().trim();
+            const hosting = $(VIDEO_HOSTING_QUERY, elem).text().trim();
+            const type = $(VIDEO_TYPE_QUERY, elem).text().trim().toLowerCase();
+
+            translations.push(({
+              id: videoId,
+              animeId: req.params.animeId,
+              episodeId: req.params.episodeId,
+              type: checkTranslationType(type),
+              quality: quality,
+              hosting: hosting,
+              author: author,
+              episodesSize: episodes.length
+            }));
+          });
+        res.status(200).json(translations);
         return res
-      }
+      })
+      .catch((err) => {
+        console.log(err.statusCode);
+        if (url.indexOf("api") === -1 && err.statusCode === 429) {
+          const apiKey = functions.config().scraper.key
+          return getTranslations('http://api.scraperapi.com?api_key=apiKey&url=' + baseUrl);
+        } else {
+          console.error(err);
+          res.status(400).json(err)
+          return res;
+        }
+      });
 
-      let all = $(require('util').format(ALL_QUERY, req.query.type));
-      $(TRANSLATIONS_QUERY, all)
-        .each(function(i, elem) {
-          const videoId = $(elem).attr(VIDEO_ID_QUERY);
-          const rawQuality = $(VIDEO_QUALITY_QUERY, elem).attr('class');
-          let quality = "tv";
-          if (typeof rawQuality !== 'undefined' && rawQuality !== null) {
-            quality = rawQuality.split(' ')[1]
-          }
-          const author = $(VIDEO_AUTHOR_QUERY, elem).text().trim();
-          const hosting = $(VIDEO_HOSTING_QUERY, elem).text().trim();
-          const type = $(VIDEO_TYPE_QUERY, elem).text().trim().toLowerCase();
-
-          translations.push(({
-            id: videoId,
-            animeId: req.params.animeId,
-            episodeId: req.params.episodeId,
-            type: checkTranslationType(type),
-            quality: quality,
-            hosting: hosting,
-            author: author,
-            episodesSize: episodes.length
-          }));
-        });
-      res.status(200).json(translations);
-      return res
-    })
-    .catch((err) => {
-      console.error(err);
-      res.status(404).json(err)
-    });
-
+  }
+  return getTranslations(baseUrl);
 });
 
 app.get('/:animeId/series', async (req, res) => {
@@ -370,7 +381,6 @@ app.get('/:animeId/series', async (req, res) => {
   };
   return getEpisodes(baseUrl);
 });
-
 
 function checkTranslationType(type) {
   if (type == 'озвучка') {
