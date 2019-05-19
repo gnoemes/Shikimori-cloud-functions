@@ -149,16 +149,8 @@ app.get('/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
     videoPart = "/" + req.params.videoId
   }
 
-  const url = "https://play.shikimori.org/animes/a" + req.params.animeId + "/video_online/" + req.params.episodeId + videoPart;
-  const options = {
-    uri: url,
-    jar: cookieJar,
-    headers: {
-      'Referer': 'https://shikimori.org/',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:64.0) Gecko/20100101 Firefox/64.0',
-    },
-    transform: (body) => cheerio.load(body)
-  };
+  const baseUrl = "https://play.shikimori.org/animes/a" + req.params.animeId + "/video_online/" + req.params.episodeId + videoPart;
+
   for (let q of availableParams)
     cookieJar.setCookie("anime_video_" + q + "=" + req.query[q] + "; path=/; domain=.play.shikimori.org; Expires=Tue, 19 Jan 2038 03:14:07 GMT;",
       'https://play.shikimori.org',
@@ -177,86 +169,105 @@ app.get('/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
   let playerUrl;
   let response;
 
-  rp(options)
-    .then(($) => {
-      const URL_QUERY = "div.video-link a";
-      const TITLE_QUERY = "a.b-link>span[itemprop]";
+  const getVideo = url => {
+    const options = {
+      uri: url,
+      jar: cookieJar,
+      headers: {
+        'Referer': 'https://shikimori.org/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:64.0) Gecko/20100101 Firefox/64.0',
+      },
+      transform: (body) => cheerio.load(body)
+    };
 
-      playerUrl = $($(URL_QUERY).first()).attr('href');
+    return rp(options)
+      .then(($) => {
+        const URL_QUERY = "div.video-link a";
+        const TITLE_QUERY = "a.b-link>span[itemprop]";
 
-      if (typeof playerUrl === 'undefined') {
-        res.status(404).send();
-        return res
-      } else if (playerUrl.indexOf("http") === -1) {
-        playerUrl = "http:" + playerUrl
-      }
+        playerUrl = $($(URL_QUERY).first()).attr('href');
 
-      return rp({
-        uri: playerUrl,
-        transform: _include_headers
+        if (typeof playerUrl === 'undefined') {
+          res.status(404).send();
+          return res
+        } else if (playerUrl.indexOf("http") === -1) {
+          playerUrl = "http:" + playerUrl
+        }
+
+        return rp({
+            uri: playerUrl,
+            transform: _include_headers
+          }).then((data) => {
+            const q = videoParser.getTracks(playerUrl, cheerio.load(data.data));
+            console.log(q);
+            return q;
+          }).then((tracks) => {
+            response = ({
+              animeId: req.params.animeId,
+              episodeId: req.params.episodeId,
+              player: playerUrl,
+              hosting: videoParser.getHosting(playerUrl),
+              tracks: tracks
+            });
+
+            if (playerUrl.indexOf("sibnet.ru") !== -1 && req.query.hosting === "sibnet.ru") {
+              const _handleRedirect = function(err, res) {
+                if (err !== null && err !== '') {
+                  console.error(err);
+                }
+                return "https:" + res.headers.location.replace("/manifest.mpd", ".mp4")
+              };
+              const options = {
+                uri: tracks,
+                followAllRedirects: false,
+                followRedirect: false,
+                simple: false,
+                headers: {
+                  'Referer': playerUrl
+                },
+                transform: _handleRedirect
+              };
+
+              return rp(options)
+            } else {
+              return response
+            }
+
+          })
+          .then((url) => {
+            if (playerUrl.indexOf("sibnet.ru") !== -1 && req.query.hosting === "sibnet.ru") {
+              const track = (({
+                quality: "unknown",
+                url: url
+              }));
+
+              response = ({
+                animeId: req.params.animeId,
+                episodeId: req.params.episodeId,
+                player: playerUrl,
+                hosting: "sibnet",
+                tracks: [track]
+              })
+            }
+
+            res.status(200).json(response);
+            return res
+          });
       })
-    })
-    .then((data) => {
-      const q = videoParser.getTracks(playerUrl, cheerio.load(data.data));
-      console.log(q);
-      return q;
-    }).then((tracks) => {
-      response = ({
-        animeId: req.params.animeId,
-        episodeId: req.params.episodeId,
-        player: playerUrl,
-        hosting: videoParser.getHosting(playerUrl),
-        tracks: tracks
+      .catch((err) => {
+        console.log(err.statusCode);
+        if (url.indexOf("api") === -1 && err.statusCode === 429) {
+          const apiKey = functions.config().scraper.key
+          return getVideo('http://api.scraperapi.com?api_key=' + apiKey + '&url=' + baseUrl);
+        } else {
+          console.error(err);
+          res.status(400).json(err)
+          return res;
+        }
       });
-
-      if (playerUrl.indexOf("sibnet.ru") !== -1 && req.query.hosting === "sibnet.ru") {
-        const _handleRedirect = function(err, res) {
-          if (err !== null && err !== '') {
-            console.error(err);
-          }
-          return "https:" + res.headers.location.replace("/manifest.mpd", ".mp4")
-        };
-        const options = {
-          uri: tracks,
-          followAllRedirects: false,
-          followRedirect: false,
-          simple: false,
-          headers: {
-            'Referer': playerUrl
-          },
-          transform: _handleRedirect
-        };
-
-        return rp(options)
-      } else {
-        return response
-      }
-
-    })
-    .then((url) => {
-      if (playerUrl.indexOf("sibnet.ru") !== -1 && req.query.hosting === "sibnet.ru") {
-        const track = (({
-          quality: "unknown",
-          url: url
-        }));
-
-        response = ({
-          animeId: req.params.animeId,
-          episodeId: req.params.episodeId,
-          player: playerUrl,
-          hosting: "sibnet",
-          tracks: [track]
-        })
-      }
-
-      res.status(200).json(response);
-      return res
-    })
-    .catch((err) => {
-      console.error(err);
-      res.status(404).json(err);
-      return res
-    });
+  }
+  
+  return getVideo(baseUrl);
 });
 
 app.get('/:animeId/:episodeId/translations/', async (req, res) => {
@@ -333,7 +344,7 @@ app.get('/:animeId/:episodeId/translations/', async (req, res) => {
         console.log(err.statusCode);
         if (url.indexOf("api") === -1 && err.statusCode === 429) {
           const apiKey = functions.config().scraper.key
-          return getTranslations('http://api.scraperapi.com?api_key=apiKey&url=' + baseUrl);
+          return getTranslations('http://api.scraperapi.com?api_key=' + apiKey + '&url=' + baseUrl);
         } else {
           console.error(err);
           res.status(400).json(err)
@@ -371,7 +382,7 @@ app.get('/:animeId/series', async (req, res) => {
         console.log(err.statusCode);
         if (url.indexOf("api") === -1 && err.statusCode === 429) {
           const apiKey = functions.config().scraper.key
-          return getEpisodes('http://api.scraperapi.com?api_key=apiKey&url=' + baseUrl);
+          return getEpisodes('http://api.scraperapi.com?api_key=' + apiKey + '&url=' + baseUrl);
         } else {
           console.error(err);
           res.status(400).json(err)
