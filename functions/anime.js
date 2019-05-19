@@ -184,7 +184,7 @@ app.get('/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
 
       playerUrl = $($(URL_QUERY).first()).attr('href');
 
-      if (typeof playerUrl !== 'undefined') {
+      if (typeof playerUrl === 'undefined') {
         res.status(404).send();
         return res
       } else if (playerUrl.indexOf("http") === -1) {
@@ -211,7 +211,7 @@ app.get('/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
 
       if (playerUrl.indexOf("sibnet.ru") !== -1 && req.query.hosting === "sibnet.ru") {
         const _handleRedirect = function(err, res) {
-          if (err !== null) {
+          if (err !== null && err !== '') {
             console.error(err);
           }
           return "https:" + res.headers.location.replace("/manifest.mpd", ".mp4")
