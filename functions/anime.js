@@ -5,6 +5,7 @@ const request = require('request');
 const cheerio = require('cheerio');
 const videoParser = require('./video-parsing');
 const cookieJar = request.jar();
+const functions = require('firebase-functions');
 const cookie = '_kawai_session=UFd5Ly9JcEIxSit0UEJpbjg3cm9YUUpZTk9ZUU9jUUQ0WXZzanAzODlUOUtTMS9FdDZ4SHRGYkxmemYzUHhDQ2pyZktiRUZEZlg4WXIzU09yTEJZWnQ4cmVlTHFFZUt3cHlFTjk3NFJ3YmYwUTVqa1ZsMG1hcFpQaUFLdmJYZGQ2aEVqUkw4MU5qU3drdTRqTzhRTE4rRjlXQ2MxcUJKbDNMOWJsaXM3Z0craFNmeUpTR1VBeThRSDJUNlArV3BlTkFKK2JpRGlyM3hrMGJuWElzK1VhM0hqSVFUbkZsNjRZWlg1T05XR083bEVLc2l3ZG1oZVJmSzNRZkZwS0h4VFc5b3d5Qm5WVU5WbTc4VzhnSXl4aWRqVURSdmVoL2RLTHpocFlWNEl5cFE9LS0zRC9IdXNPK1hPTUtSM2tkU2VzRDhnPT0%3D--086ce10560a6686351b45493b9a076228a1ab2b2; domain=.shikimori.org; path=/; expires=Tue, 09 Jan 2024 11:05:19 -0000; secure; HttpOnly';
 // https://del.dog/ejibujajif
 
@@ -13,7 +14,7 @@ cookieJar.setCookie(cookie, 'https://shikimori.org', function(err, cookie) {
   console.log('cookie: ' + cookie);
 });
 
-//TODO refactor 
+//TODO refactor
 app.post('/player', async (req, res) => {
   const _include_headers = function(body, response) {
     return {
@@ -183,7 +184,10 @@ app.get('/:animeId/:episodeId/video/:videoId*?', async (req, res) => {
 
       playerUrl = $($(URL_QUERY).first()).attr('href');
 
-      if (playerUrl.indexOf("http") === -1) {
+      if (typeof playerUrl !== 'undefined') {
+        res.status(404).send();
+        return res
+      } else if (playerUrl.indexOf("http") === -1) {
         playerUrl = "http:" + playerUrl
       }
 
@@ -313,7 +317,7 @@ app.get('/:animeId/:episodeId/translations/', async (req, res) => {
             id: videoId,
             animeId: req.params.animeId,
             episodeId: req.params.episodeId,
-            type: type,
+            type: checkTranslationType(type),
             quality: quality,
             hosting: hosting,
             author: author,
@@ -331,48 +335,54 @@ app.get('/:animeId/:episodeId/translations/', async (req, res) => {
 });
 
 app.get('/:animeId/series', async (req, res) => {
-  const url = "https://play.shikimori.org/animes/a" + req.params.animeId + "/video_online";
-  const options = {
-    uri: url,
-    jar: cookieJar,
-    headers: {
-      'Referer': 'https://shikimori.org/',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:64.0) Gecko/20100101 Firefox/64.0',
-    },
-    transform: (body) => cheerio.load(body)
-  };
+  const baseUrl = "https://play.shikimori.org/animes/a" + req.params.animeId + "/video_online";
 
-  rp(options)
-    .then(($) => {
-      const INFO_OBJECT_QUERY = "gon.watch_online=";
+  const getEpisodes = url => {
+    const options = {
+      uri: url,
+      jar: cookieJar,
+      headers: {
+        'Referer': 'https://shikimori.org/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:64.0) Gecko/20100101 Firefox/64.0',
+      },
+      transform: (body) => cheerio.load(body)
+    };
 
-      let scriptInfo = $('script').last().html(),
-        infoObj = null;
-
-      try {
-        infoObj = JSON.parse(scriptInfo.substring(
-          scriptInfo.indexOf(INFO_OBJECT_QUERY) + INFO_OBJECT_QUERY.length,
-          scriptInfo.lastIndexOf("};") + 1))
-      } catch (err) {
-        console.error(err);
-      }
-
-      if (infoObj !== null && infoObj.is_licensed) {
-        res.status(403).send("Anime under license");
-        return res;
-      } else {
+    return rp(options)
+      .then(($) => {
         const episodes = convertEpisodes($, req.params.animeId);
         console.log('EPISODES: ' + episodes.length);
         res.setHeader('content-type', 'application/json');
         res.json(episodes).status(200);
         return res;
-      }
-    })
-    .catch((err) => {
-      console.error(err);
-      res.status(400).json(err)
-    });
+      })
+      .catch((err) => {
+        console.log(err.statusCode);
+        if (url.indexOf("api") === -1 && err.statusCode === 429) {
+          const apiKey = functions.config().scraper.key
+          return getEpisodes('http://api.scraperapi.com?api_key=apiKey&url=' + baseUrl);
+        } else {
+          console.error(err);
+          res.status(400).json(err)
+          return res;
+        }
+      });
+  };
+  return getEpisodes(baseUrl);
 });
+
+
+function checkTranslationType(type) {
+  if (type == 'озвучка') {
+    return 'fandub'
+  } else if (type == 'субтитры') {
+    return 'subtitles'
+  } else if (type == 'оригинал') {
+    return "raw"
+  } else {
+    return type
+  }
+}
 
 function convertEpisodes($, animeId) {
   const ERROR_QUERY = "div.b-errors p";
@@ -384,7 +394,6 @@ function convertEpisodes($, animeId) {
   let episodes = [],
     kek = $(EPISODES_QUERY),
     html = kek.html();
-  console.log("HTML: " + html);
   kek.each(function(i, elem) {
     const id = $(elem).attr(EPISODE_ID_QUERY);
     const translations = $(EPISODE_TRANSLATIONS_QUERY, elem)
@@ -393,7 +402,8 @@ function convertEpisodes($, animeId) {
       .split(",")
       .map(e => {
         return e.trim()
-      });
+      })
+      .map(checkTranslationType);
 
     const rawHostings = $(EPISODE_HOSTINGS_QUERY, elem).text();
     const videoHostings = rawHostings
