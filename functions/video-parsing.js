@@ -10,6 +10,7 @@ const OK_REGEX = "https?://ok\\.ru/";
 const SOVET_ROMANTICA_REGEX = "https?://sovetromantica\\.com/";
 const ANIMEDIA_REGEX = "https?://online\\.animedia\\.tv/";
 const MAIL_RU = "https?://my\\.mail\\.ru/";
+const MYVI = "https?://myvi\\.top/";
 
 const parseFunctions = [
   sibnetParsing,
@@ -151,6 +152,8 @@ function findHosting(url) {
     return "animedia.tv"
   } else if (url.match(MAIL_RU)) {
     return "mail.ru"
+  } else if (url.match(MYVI)) {
+    return "myvi.top"
   } else {
     return "unknown"
   }
